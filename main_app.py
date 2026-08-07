@@ -8,7 +8,12 @@ from moviepy.editor import VideoFileClip
 st.set_page_config(page_title="Shorts Maker AI", page_icon="🎬", layout="centered")
 st.title("🎬 AI YouTube Shorts Generator")
 
-# Streamlit Secrets se API key lein
+# Secrets Check
+if "GEMINI_API_KEY" not in st.secrets:
+    st.error("Streamlit Secrets mein GEMINI_API_KEY nahi mili!")
+    st.stop()
+
+# API Key setup
 api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
 
@@ -20,7 +25,7 @@ if st.button("🚀 Shorts Banayein"):
         st.warning("Kripya YouTube video ka link dalen!")
     else:
         try:
-            # 1. Video Download Options (403 Bypass)
+            # 1. Video Download
             ydl_opts = {
                 'format': 'best[ext=mp4]/best',
                 'outtmpl': 'input_video.mp4',
@@ -29,61 +34,52 @@ if st.button("🚀 Shorts Banayein"):
                 'ignoreerrors': True,
                 'no_warnings': True,
                 'quiet': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android', 'web']
-                    }
-                }
+                'extractor_args': {'youtube': {'player_client': ['android', 'web']}}
             }
 
             with st.spinner("Video download ho rhi hai..."):
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([yt_url])
-            st.success("Video Download ho gayi!")
+            st.success("Video Download Ho Gayi!")
 
-            # 2. Gemini AI se Viral Timestamps maangein
-            with st.spinner("AI best moments dhoondh raha hai..."):
+            # 2. AI Timestamps Selection
+            with st.spinner("AI clips select kar raha hai..."):
                 model = genai.GenerativeModel('gemini-1.5-flash')
-                
                 prompt = (
-                    "Analyze this request to select top " + str(num_clips) + " viral moments from a video.\n"
+                    f"Analyze this request to select top {num_clips} viral moments from a video.\n"
                     "Return ONLY a valid JSON array with objects containing 'start' and 'end' keys in float seconds (15 to 45 seconds length each).\n"
                     "Example output format:\n"
                     '[{"start": 10.0, "end": 35.0}, {"start": 60.0, "end": 90.0}]'
                 )
                 
                 response = model.generate_content(prompt)
-                
-                # Clean and parse JSON
-                text_response = response.text.replace("```json", "").replace("```", "").strip()
-                timestamps = json.loads(text_response)
+                clean_json = response.text.replace("```json", "").replace("```", "").strip()
+                timestamps = json.loads(clean_json)
 
-            # 3. Process Clips (9:16 Crop)
+            # 3. Video Processing & Download Buttons
             st.subheader("Aapke Shorts Tayar Hain:")
             
             for i, item in enumerate(timestamps):
                 start_time = float(item['start'])
                 end_time = float(item['end'])
-                
                 output_filename = f"short_{i+1}.mp4"
                 
-                # MoviePy Processing
                 with VideoFileClip("input_video.mp4") as video:
                     clip = video.subclip(start_time, end_time)
                     
-                    # 9:16 Crop
+                    # 9:16 Aspect Ratio Crop (Shorts Format)
                     w, h = clip.size
-                    target_aspect_ratio = 9 / 16
-                    current_aspect_ratio = w / h
+                    target_ratio = 9 / 16
+                    current_ratio = w / h
                     
-                    if current_aspect_ratio > target_aspect_ratio:
-                        new_w = int(h * target_aspect_ratio)
-                        crop_x1 = int((w - new_w) / 2)
-                        clip = clip.crop(x1=crop_x1, y1=0, x2=crop_x1 + new_w, y2=h)
+                    if current_ratio > target_ratio:
+                        new_w = int(h * target_ratio)
+                        crop_x = int((w - new_w) / 2)
+                        clip = clip.crop(x1=crop_x, y1=0, x2=crop_x + new_w, y2=h)
                     else:
-                        new_h = int(w / target_aspect_ratio)
-                        crop_y1 = int((h - new_h) / 2)
-                        clip = clip.crop(x1=0, y1=crop_y1, x2=w, y2=crop_y1 + new_h)
+                        new_h = int(w / target_ratio)
+                        crop_y = int((h - new_h) / 2)
+                        clip = clip.crop(x1=0, y1=crop_y, x2=w, y2=crop_y + new_h)
 
                     clip.write_videofile(
                         output_filename, 
@@ -93,8 +89,17 @@ if st.button("🚀 Shorts Banayein"):
                         logger=None
                     )
 
-                st.write(f"**Short #{i+1}** (Time: {start_time:.1f}s - {end_time:.1f}s)")
+                # Screen Par Video Player + Download Button
+                st.write(f"**Short #{i+1}** ({start_time:.1f}s - {end_time:.1f}s)")
                 st.video(output_filename)
+                
+                with open(output_filename, "rb") as file:
+                    st.download_button(
+                        label=f"⬇️ Download Short #{i+1}",
+                        data=file,
+                        file_name=output_filename,
+                        mime="video/mp4"
+                    )
 
         except Exception as e:
             st.error(f"Error aaya: {e}")
