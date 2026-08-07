@@ -22,11 +22,20 @@ if st.button("🚀 Shorts Banayein"):
             # 1. Gemini Client Initialize
             client = genai.Client(api_key=api_key)
 
-            # 2. Video Download Options
+            # 2. Video Download Options (YouTube 403 Fix Added)
             ydl_opts = {
                 'format': 'best[ext=mp4]/best',
                 'outtmpl': 'input_video.mp4',
                 'force_overwrites': True,
+                'nocheckcertificate': True,
+                'ignoreerrors': True,
+                'no_warnings': True,
+                'quiet': True,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android', 'web']
+                    }
+                }
             }
 
             with st.spinner("Video download ho rhi hai..."):
@@ -51,7 +60,7 @@ if st.button("🚀 Shorts Banayein"):
                 text_response = response.text.replace("```json", "").replace("```", "").strip()
                 timestamps = json.loads(text_response)
 
-            # 4. Process Clips
+            # 4. Process Clips (9:16 Crop)
             st.subheader("Aapke Shorts Tayar Hain:")
             
             for i, item in enumerate(timestamps):
