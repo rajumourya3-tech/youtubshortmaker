@@ -22,7 +22,7 @@ if st.button("🚀 Shorts Banayein"):
             # 1. Gemini Client Initialize
             client = genai.Client(api_key=api_key)
 
-            # 2. Video Download Options (YouTube 403 Fix Added)
+            # 2. Video Download Options (YouTube 403 Fix)
             ydl_opts = {
                 'format': 'best[ext=mp4]/best',
                 'outtmpl': 'input_video.mp4',
@@ -45,11 +45,12 @@ if st.button("🚀 Shorts Banayein"):
 
             # 3. Gemini AI se Viral Timestamps maangein
             with st.spinner("AI best moments dhoondh raha hai..."):
-                prompt = f"""
-                Analyze this request to select top {num_clips} viral moments from a video.
-                Return ONLY a JSON array with objects containing 'start' and 'end' keys in float seconds (15 to 45 seconds length each).
-                Example: [{"start": 10.0, "end": 35.0}, {"start": 60.0, "end": 90.0}]
-                """
+                prompt = (
+                    "Analyze this request to select top " + str(num_clips) + " viral moments from a video.\n"
+                    "Return ONLY a valid JSON array with objects containing 'start' and 'end' keys in float seconds (15 to 45 seconds length each).\n"
+                    "Example output format:\n"
+                    '[{"start": 10.0, "end": 35.0}, {"start": 60.0, "end": 90.0}]'
+                )
                 
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
