@@ -22,7 +22,7 @@ if st.button("🚀 Shorts Banayein"):
             # 1. Gemini Client Initialize
             client = genai.Client(api_key=api_key)
 
-            # 2. Video Download Options (Best pre-merged MP4 format)
+            # 2. Video Download Options
             ydl_opts = {
                 'format': 'best[ext=mp4]/best',
                 'outtmpl': 'input_video.mp4',
@@ -51,7 +51,7 @@ if st.button("🚀 Shorts Banayein"):
                 text_response = response.text.replace("```json", "").replace("```", "").strip()
                 timestamps = json.loads(text_response)
 
-            # 4. Process Clips (Aspect Ratio 9:16 Crop & HD Quality Export)
+            # 4. Process Clips
             st.subheader("Aapke Shorts Tayar Hain:")
             
             for i, item in enumerate(timestamps):
@@ -62,33 +62,27 @@ if st.button("🚀 Shorts Banayein"):
                 
                 # MoviePy Processing
                 with VideoFileClip("input_video.mp4") as video:
-                    # Clip duration cut karein
                     clip = video.subclip(start_time, end_time)
                     
-                    # 9:16 Aspect Ratio Mein Centre Crop Karein (Shorts Format)
+                    # 9:16 Crop
                     w, h = clip.size
                     target_aspect_ratio = 9 / 16
                     current_aspect_ratio = w / h
                     
                     if current_aspect_ratio > target_aspect_ratio:
-                        # Video jyada wide hai, sides cut karein
                         new_w = int(h * target_aspect_ratio)
                         crop_x1 = int((w - new_w) / 2)
                         clip = clip.crop(x1=crop_x1, y1=0, x2=crop_x1 + new_w, y2=h)
                     else:
-                        # Video tall hai, top/bottom cut karein
                         new_h = int(w / target_aspect_ratio)
                         crop_y1 = int((h - new_h) / 2)
                         clip = clip.crop(x1=0, y1=crop_y1, x2=w, y2=crop_y1 + new_h)
 
-                    # HD Quality Audio & Video Export
                     clip.write_videofile(
                         output_filename, 
                         codec="libx264", 
                         audio_codec="aac",
-                        bitrate="5000k",        # High quality video
-                        audio_bitrate="192k",    # Clear audio quality
-                        preset="fast",
+                        preset="ultrafast",
                         logger=None
                     )
 
