@@ -1,21 +1,9 @@
-import json
 import streamlit as st
-import google.generativeai as genai
 import yt_dlp
 from moviepy.editor import VideoFileClip
 
-# UI Setup
-st.set_page_config(page_title="Shorts Maker AI", page_icon="🎬", layout="centered")
-st.title("🎬 AI YouTube Shorts Generator")
-
-# Secrets Check
-if "GEMINI_API_KEY" not in st.secrets:
-    st.error("Streamlit Secrets mein GEMINI_API_KEY nahi mili!")
-    st.stop()
-
-# API Key setup
-api_key = st.secrets["GEMINI_API_KEY"]
-genai.configure(api_key=api_key)
+st.set_page_config(page_title="Shorts Maker", page_icon="🎬", layout="centered")
+st.title("🎬 YouTube Shorts Generator")
 
 yt_url = st.text_input("YouTube video ka Link yahan paste karein:")
 num_clips = st.slider("Kitne Shorts chahiye?", min_value=1, max_value=5, value=2)
@@ -25,7 +13,6 @@ if st.button("🚀 Shorts Banayein"):
         st.warning("Kripya YouTube video ka link dalen!")
     else:
         try:
-            # 1. Video Download
             ydl_opts = {
                 'format': 'best[ext=mp4]/best',
                 'outtmpl': 'input_video.mp4',
@@ -42,36 +29,27 @@ if st.button("🚀 Shorts Banayein"):
                     ydl.download([yt_url])
             st.success("Video Download Ho Gayi!")
 
-            # 2. AI Timestamps Selection
-            with st.spinner("AI clips select kar raha hai..."):
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                prompt = (
-                    f"Analyze this request to select top {num_clips} viral moments from a video.\n"
-                    "Return ONLY a valid JSON array with objects containing 'start' and 'end' keys in float seconds (15 to 45 seconds length each).\n"
-                    "Example output format:\n"
-                    '[{"start": 10.0, "end": 35.0}, {"start": 60.0, "end": 90.0}]'
-                )
-                
-                response = model.generate_content(prompt)
-                clean_json = response.text.replace("```json", "").replace("```", "").strip()
-                timestamps = json.loads(clean_json)
-
-            # 3. Video Processing & Download Buttons
             st.subheader("Aapke Shorts Tayar Hain:")
             
-            for i, item in enumerate(timestamps):
-                start_time = float(item['start'])
-                end_time = float(item['end'])
-                output_filename = f"short_{i+1}.mp4"
-                
-                with VideoFileClip("input_video.mp4") as video:
+            with VideoFileClip("input_video.mp4") as video:
+                total_duration = video.duration
+                clip_length = 30  # Har short 30 sec ka hoga
+
+                for i in range(num_clips):
+                    start_time = i * clip_length
+                    end_time = min(start_time + clip_length, total_duration)
+
+                    if start_time >= total_duration:
+                        break
+
+                    output_filename = f"short_{i+1}.mp4"
                     clip = video.subclip(start_time, end_time)
-                    
-                    # 9:16 Aspect Ratio Crop (Shorts Format)
+
+                    # 9:16 Crop
                     w, h = clip.size
                     target_ratio = 9 / 16
                     current_ratio = w / h
-                    
+
                     if current_ratio > target_ratio:
                         new_w = int(h * target_ratio)
                         crop_x = int((w - new_w) / 2)
@@ -89,17 +67,16 @@ if st.button("🚀 Shorts Banayein"):
                         logger=None
                     )
 
-                # Screen Par Video Player + Download Button
-                st.write(f"**Short #{i+1}** ({start_time:.1f}s - {end_time:.1f}s)")
-                st.video(output_filename)
-                
-                with open(output_filename, "rb") as file:
-                    st.download_button(
-                        label=f"⬇️ Download Short #{i+1}",
-                        data=file,
-                        file_name=output_filename,
-                        mime="video/mp4"
-                    )
+                    st.write(f"**Short #{i+1}** ({start_time:.1f}s - {end_time:.1f}s)")
+                    st.video(output_filename)
+
+                    with open(output_filename, "rb") as file:
+                        st.download_button(
+                            label=f"⬇️ Download Short #{i+1}",
+                            data=file,
+                            file_name=output_filename,
+                            mime="video/mp4"
+                        )
 
         except Exception as e:
             st.error(f"Error aaya: {e}")
