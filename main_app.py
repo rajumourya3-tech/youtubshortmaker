@@ -1,6 +1,6 @@
 import json
 import streamlit as st
-from google import genai
+import google.generativeai as genai
 import yt_dlp
 from moviepy.editor import VideoFileClip
 
@@ -10,6 +10,7 @@ st.title("🎬 AI YouTube Shorts Generator")
 
 # Streamlit Secrets se API key lein
 api_key = st.secrets["GEMINI_API_KEY"]
+genai.configure(api_key=api_key)
 
 yt_url = st.text_input("YouTube video ka Link yahan paste karein:")
 num_clips = st.slider("Kitne Shorts chahiye?", min_value=1, max_value=5, value=2)
@@ -19,10 +20,7 @@ if st.button("🚀 Shorts Banayein"):
         st.warning("Kripya YouTube video ka link dalen!")
     else:
         try:
-            # 1. Gemini Client Initialize
-            client = genai.Client(api_key=api_key)
-
-            # 2. Video Download Options (YouTube 403 Fix)
+            # 1. Video Download Options (403 Bypass)
             ydl_opts = {
                 'format': 'best[ext=mp4]/best',
                 'outtmpl': 'input_video.mp4',
@@ -43,8 +41,10 @@ if st.button("🚀 Shorts Banayein"):
                     ydl.download([yt_url])
             st.success("Video Download ho gayi!")
 
-            # 3. Gemini AI se Viral Timestamps maangein
+            # 2. Gemini AI se Viral Timestamps maangein
             with st.spinner("AI best moments dhoondh raha hai..."):
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                
                 prompt = (
                     "Analyze this request to select top " + str(num_clips) + " viral moments from a video.\n"
                     "Return ONLY a valid JSON array with objects containing 'start' and 'end' keys in float seconds (15 to 45 seconds length each).\n"
@@ -52,16 +52,13 @@ if st.button("🚀 Shorts Banayein"):
                     '[{"start": 10.0, "end": 35.0}, {"start": 60.0, "end": 90.0}]'
                 )
                 
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=prompt,
-                )
+                response = model.generate_content(prompt)
                 
                 # Clean and parse JSON
                 text_response = response.text.replace("```json", "").replace("```", "").strip()
                 timestamps = json.loads(text_response)
 
-            # 4. Process Clips (9:16 Crop)
+            # 3. Process Clips (9:16 Crop)
             st.subheader("Aapke Shorts Tayar Hain:")
             
             for i, item in enumerate(timestamps):
