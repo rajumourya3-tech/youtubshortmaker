@@ -2,12 +2,13 @@ import json
 import streamlit as st
 from google import genai
 import yt_dlp
-from moviepy import VideoFileClip
+from moviepy.editor import VideoFileClip
 
 # UI Setup
 st.set_page_config(page_title="Shorts Maker AI", page_icon="🎬", layout="centered")
 st.title("🎬 AI YouTube Shorts Generator")
 
+# Streamlit Secrets se API key lein
 api_key = st.secrets["GEMINI_API_KEY"]
 
 yt_url = st.text_input("YouTube video ka Link yahan paste karein:")
@@ -18,57 +19,81 @@ if st.button("🚀 Shorts Banayein"):
         st.warning("Kripya YouTube video ka link dalen!")
     else:
         try:
+            # 1. Gemini Client Initialize
             client = genai.Client(api_key=api_key)
 
-            # 1. Video Download
-            with st.spinner("⏳ Video download ho raha hai..."):
-                ydl_opts = {
-                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                    'outtmpl': 'input_video.mp4',
-                    'force_overwrites': True,
-                }
+            # 2. Video Download Options (Best pre-merged MP4 format)
+            ydl_opts = {
+                'format': 'best[ext=mp4]/best',
+                'outtmpl': 'input_video.mp4',
+                'force_overwrites': True,
+            }
+
+            with st.spinner("Video download ho rhi hai..."):
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([yt_url])
-                st.success("✅ Video download ho gaya!")
+            st.success("Video Download ho gayi!")
 
-            # 2. AI Processing
-            with st.spinner("🧠 Gemini AI best highlights dhoondh raha hai..."):
-                uploaded_file = client.files.upload(file="input_video.mp4")
-                
+            # 3. Gemini AI se Viral Timestamps maangein
+            with st.spinner("AI best moments dhoondh raha hai..."):
                 prompt = f"""
-                Analyze this video and find {num_clips} most engaging short segments suitable for YouTube Shorts (15-60 seconds each).
-                Return ONLY a JSON list of objects with 'start' and 'end' keys in seconds. Example: [{{"start": 10, "end": 40}}]
+                Analyze this request to select top {num_clips} viral moments from a video.
+                Return ONLY a JSON array with objects containing 'start' and 'end' keys in float seconds (15 to 45 seconds length each).
+                Example: [{"start": 10.0, "end": 35.0}, {"start": 60.0, "end": 90.0}]
                 """
                 
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
-                    contents=[uploaded_file, prompt]
+                    contents=prompt,
                 )
                 
-                clean_json = response.text.replace("```json", "").replace("```", "").strip()
-                timestamps = json.loads(clean_json)
+                # Clean and parse JSON
+                text_response = response.text.replace("```json", "").replace("```", "").strip()
+                timestamps = json.loads(text_response)
 
-            # 3. Trimming Clips
-            with st.spinner("✂️ Video clips cut ki ja rahi hain..."):
-                video = VideoFileClip("input_video.mp4")
+            # 4. Process Clips (Aspect Ratio 9:16 Crop & HD Quality Export)
+            st.subheader("Aapke Shorts Tayar Hain:")
+            
+            for i, item in enumerate(timestamps):
+                start_time = float(item['start'])
+                end_time = float(item['end'])
                 
-                for i, clip_data in enumerate(timestamps):
-                    start_time = clip_data['start']
-                    end_time = clip_data['end']
+                output_filename = f"short_{i+1}.mp4"
+                
+                # MoviePy Processing
+                with VideoFileClip("input_video.mp4") as video:
+                    # Clip duration cut karein
+                    clip = video.subclip(start_time, end_time)
                     
-                    if hasattr(video, 'subclipped'):
-                        new_clip = video.subclipped(start_time, end_time)
+                    # 9:16 Aspect Ratio Mein Centre Crop Karein (Shorts Format)
+                    w, h = clip.size
+                    target_aspect_ratio = 9 / 16
+                    current_aspect_ratio = w / h
+                    
+                    if current_aspect_ratio > target_aspect_ratio:
+                        # Video jyada wide hai, sides cut karein
+                        new_w = int(h * target_aspect_ratio)
+                        crop_x1 = int((w - new_w) / 2)
+                        clip = clip.crop(x1=crop_x1, y1=0, x2=crop_x1 + new_w, y2=h)
                     else:
-                        new_clip = video.subclip(start_time, end_time)
-                        
-                    output_filename = f"short_{i+1}.mp4"
-                    new_clip.write_videofile(output_filename, codec="libx264", audio_codec="aac")
-                    
-                    st.subheader(f"🎬 Short #{i+1}")
-                    st.video(output_filename)
-                
-                video.close()
-                st.success("🎉 Aapke Shorts taiyar hain!")
+                        # Video tall hai, top/bottom cut karein
+                        new_h = int(w / target_aspect_ratio)
+                        crop_y1 = int((h - new_h) / 2)
+                        clip = clip.crop(x1=0, y1=crop_y1, x2=w, y2=crop_y1 + new_h)
+
+                    # HD Quality Audio & Video Export
+                    clip.write_videofile(
+                        output_filename, 
+                        codec="libx264", 
+                        audio_codec="aac",
+                        bitrate="5000k",        # High quality video
+                        audio_bitrate="192k",    # Clear audio quality
+                        preset="fast",
+                        logger=None
+                    )
+
+                st.write(f"**Short #{i+1}** (Time: {start_time:.1f}s - {end_time:.1f}s)")
+                st.video(output_filename)
 
         except Exception as e:
             st.error(f"Error aaya: {e}")
