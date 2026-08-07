@@ -14,41 +14,40 @@ if st.button("🚀 Shorts Banayein"):
         st.warning("Kripya YouTube video ka link dalen!")
     else:
         try:
-            # Purani file ho toh delete karein
+            # Clean old file
             if os.path.exists("input_video.mp4"):
                 os.remove("input_video.mp4")
 
-            # Updated yt-dlp configuration for Streamlit Cloud
+            # 403 Forbidden Bypass Configuration for Streamlit
             ydl_opts = {
                 'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                'outtmpl': 'input_video.%(ext)s',
+                'outtmpl': 'input_video.mp4',
                 'force_overwrites': True,
                 'nocheckcertificate': True,
                 'ignoreerrors': False,
                 'no_warnings': True,
                 'quiet': True,
-                'merge_output_format': 'mp4',
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'web']
+                        'player_client': ['ios', 'android']
                     }
-                }
+                },
+                'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
             }
 
             with st.spinner("Video download ho rhi hai..."):
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([yt_url])
 
-            # File download verification
             if not os.path.exists("input_video.mp4"):
-                st.error("YouTube se video download nahi ho saki. Kripya doosra link try karein!")
+                st.error("YouTube ne video download block kar diya hai. Kripya kisi aur video ka link try karein!")
             else:
                 st.success("Video Download Ho Gayi!")
                 st.subheader("Aapke Shorts Tayar Hain:")
 
                 with VideoFileClip("input_video.mp4") as video:
                     total_duration = video.duration
-                    clip_length = 30  # Har short 30 seconds ka
+                    clip_length = 30  # 30 seconds per short
 
                     for i in range(num_clips):
                         start_time = i * clip_length
